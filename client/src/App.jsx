@@ -1,35 +1,91 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { useEffect, useState } from 'react'
+
+import { useSearchParams } from 'react-router-dom'
+
+import { toast } from 'react-toastify'
+import config from './config.json'
+
+import todosService from './services/todosService'
+
+import useTodos from './hooks/useTodos'
+
+import Catalog from './components/Catalog'
+import Spinner from './components/Spinner'
+
+import filterData from './utils/filterData'
+import paginate from './utils/paginate'
 
 function App() {
-  const [count, setCount] = useState(0)
+	let [searchParams, setSearchParams] = useSearchParams()
 
-  return (
-    <>
-      <div>
-        <a href="https://vitejs.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+	const { todos, categories, setTodos, isLoadingTodos } = useTodos()
+
+	const [viewConfig, setViewConfig] = useState({
+		activeFilter: '',
+		query: '',
+		sortedField: {},
+		pageSize: 4,
+		currentPage: +searchParams.get('page') || 1,
+	})
+
+	const allTodos = filterData(todos, viewConfig)
+
+	const [pageCount, filteredTodos] = paginate(
+		allTodos,
+		viewConfig.pageSize,
+		viewConfig.currentPage
+	)
+
+	useEffect(() => {
+		if (!pageCount || viewConfig.currentPage <= pageCount) return
+
+		setSearchParams({ page: 1 })
+		setViewConfig({ ...viewConfig, currentPage: 1 })
+	}, [pageCount])
+
+	const handleDeleteProduct = (product) => {
+		if (confirm('¿Estas seguro?')) {
+			todosService.deleteTask(product._id).then(() => {
+				setTodos(todos.filter((todo) => todo._id !== product._id))
+				toast.success('Borrado con exito', config.toast)
+			})
+		}
+	}
+
+	const handleChangePage = (currentPage) =>
+		setViewConfig({ ...viewConfig, currentPage })
+
+	const handleFilter = (status) =>
+		setViewConfig({ ...viewConfig, activeFilter: status, currentPage: 1 })
+
+	const handleSearch = (e) =>
+		setViewConfig({ ...viewConfig, query: e.target.value, currentPage: 1 })
+
+	const handleSort = (data) =>
+		setViewConfig({
+			...viewConfig,
+			sortedField: { path: data, sense: 'desc' },
+		})
+
+	return (
+		<>
+			{isLoadingTodos ? (
+				<Spinner />
+			) : (
+				<Catalog
+					todos={filteredTodos}
+					pageCount={pageCount}
+					categories={categories}
+					viewConfig={viewConfig}
+					onFilter={handleFilter}
+					onSearch={handleSearch}
+					onChangePage={handleChangePage}
+					onSort={handleSort}
+					onDelete={handleDeleteProduct}
+				/>
+			)}
+		</>
+	)
 }
 
 export default App
