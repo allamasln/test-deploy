@@ -1,11 +1,11 @@
 const express = require('express')
+require('dotenv').config()
 
 const app = express()
 
-app.get('/', (req, res) => {
-	res.send('Hello World with rearrange!')
-})
+require('./startup/bd')()
+require('./startup/routes')(app)
 
-app.listen(3000, () => {
-	console.log('Server listening on port 3000')
-})
+const port = process.env.PORT || 3001
+
+app.listen(port, () => console.log('server on http://localhost:' + port))
